@@ -1,6 +1,36 @@
 import socket
 import os
 from _thread import start_new_thread
+clientinfo=[]
+groupinfo=[]
+def create_user(message,portno):
+    list=message.split()
+    length=len(clientinfo)
+    for i in range(length):
+        if(list[1]==clientinfo[i]['rollno']):
+            response='roll number already present please enter another one'
+            return response
+    clientinfo.append({'rollno':list[1],'username':list[2],'password':list[3],'login':False,'port':portno})
+    response='you have signed up succesfully now please sign in'
+    return response
+def login(message,portno):
+    list=message.split()
+    length=len(clientinfo)
+    for i in range(length):
+        if(list[1]==clientinfo[i]['rollno'] and list[2]==clientinfo[i]['password']):
+            clientinfo[i]['login']=True
+            response='you are succesfully logged in'
+            return response
+    
+    response='invalid credentials please check'
+    return response
+
+
+    
+def parse(message):
+    list=message.split()
+    return list[0]
+
 Serversocket=socket.socket()
 ipadress='127.0.0.1'
 portno = 1234
@@ -11,19 +41,26 @@ except socket.error as e:
     print(str(e))
 print('server is listening')
 Serversocket.listen(5)
-def multithreadedclient(connection):
-    connection.send(str.encode("hello i am there!!"))
+def multithreadedclient(connection,portno):
+    connection.send(str.encode("hello i am there!! and your port no is"+str(portno)))
     while True:
         receiveddata=connection.recv(2048)
-        response='Server Message:'+receiveddata.decode('utf-8')
+        response=receiveddata.decode('utf-8')
+        initial=parse(response)
+        if(initial=='signup'):
+            resp=create_user(response,portno)
+        elif(initial=='signin'):
+            resp=login(response,portno)
+            
+            
         if not receiveddata:
             break
-        connection.sendall(str.encode(response))
+        connection.sendall(str.encode(resp))
     connection.close()
 while True:
     Client, address=Serversocket.accept()
     print('connected to :' + address[0] + ':' + str(address[1]))
-    start_new_thread(multithreadedclient,(Client,))
+    start_new_thread(multithreadedclient,(Client,address[1]))
     count+=1
     print('Clients Connected :' + str(count))
 Serversocket.close()
