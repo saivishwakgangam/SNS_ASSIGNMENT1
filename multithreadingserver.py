@@ -20,7 +20,7 @@ def login(message,portno):
     for i in range(length):
         if(list[1]==clientinfo[i]['rollno'] and list[2]==clientinfo[i]['password']):
             clientinfo[i]['login']=True
-            response='you are succesfully logged in'
+            response='loggedin '+clientinfo[i]['username']
             return response
     
     response='invalid credentials please check'
