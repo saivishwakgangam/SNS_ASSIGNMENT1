@@ -4,6 +4,7 @@ import os
 import hashlib
 from Crypto.Cipher import DES3
 from _thread import start_new_thread
+
 prime_number=671998030559713968361666935769
 generator=2
 roll_no=sys.argv[2]
@@ -11,10 +12,12 @@ global user_name
 user_name='h'
 listeningsocket=socket.socket()
 #padding message
+
 def pad(message):
     while len(message) % 8 != 0:
         message+=' '
     return message
+
 def sender_diffie_hellman():
     global private_key
     #generation of private key
@@ -28,9 +31,11 @@ def sender_diffie_hellman():
     #send public key to bob
     messagesent='alice '+str(portno)+' '+alice_public_key
     return messagesent
+
 def parse(message):
     list=message.split()
     return list[0]
+
 def receiver_diffie_hellman(response):
     global private_key
     global shared_key
@@ -75,8 +80,11 @@ def decrypt3des(messagesent):
     #print(messagesent)
     cipher=DES3.new(final_key,DES3.MODE_ECB)
     orginalmessage=cipher.decrypt(messagesent)
-    orginalmessage=str(orginalmessage)
-    print(orginalmessage.rstrip())
+    display = str(orginalmessage.decode("utf-8"))     
+    print(type(orginalmessage))
+    print(display)
+#   orginalmessage=str(orginalmessage)
+#    print(orginalmessage.rstrip())
 
 
 ipaddress='127.0.0.1'
@@ -140,6 +148,7 @@ print(res.decode('utf-8'))
 while True:
     message=input()
     initial=parse(message)
+    print("initial : ", initial)
     if(initial=='signup'):
         message+=" "
         message+=sys.argv[1]
@@ -147,6 +156,13 @@ while True:
         list=message.split(' ',2)
         sendingmessage=user_name+':'+list[2]
         message=list[0]+' '+list[1]
+
+    elif(initial=='join'):
+        message+= " "+user_name
+    elif(initial=='create'):
+        message+= " "+user_name
+    elif(initial=='delete'):
+        message+= " "+user_name
 
     clientsocket.send(str.encode(message))
     res=clientsocket.recv(1024)
@@ -160,4 +176,3 @@ while True:
     else:
         print(recevied)
 clientsocket.close()
-
