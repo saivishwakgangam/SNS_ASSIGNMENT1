@@ -2,21 +2,97 @@ import socket
 import sys
 import os
 import hashlib
+import pickle
+from message import Message
 from Crypto.Cipher import DES3
 from _thread import start_new_thread
-
+peer_info={}
+message_object=Message("","","",b'',"","","","","","",[],False)
 prime_number=671998030559713968361666935769
 generator=2
 roll_no=sys.argv[2]
-global user_name
-user_name='h'
 listeningsocket=socket.socket()
+def parse(message):
+    list=message.split()
+    return list[0]
 #padding message
-
 def pad(message):
     while len(message) % 8 != 0:
         message+=' '
     return message
+
+def fill_the_object(message):
+    initial=parse(message)
+    if(initial=='signup'):
+        global user_name
+        global password
+        list=message.split()
+        message_object.empty()
+        message_object.message_type="signup"
+        message_object.client_name=list[2]
+        user_name=list[2]
+        message_object.client_rollnumber=list[1]
+        password=list[3]
+        message_object.client_password=password
+        message_object.client_portno=str(sys.argv[1])
+    elif(initial=='signin'):
+        list=message.split()
+        message_object.empty()
+        message_object.message_type="signin"
+        message_object.client_rollnumber=list[1]
+        message_object.client_password=list[2]
+    elif(initial=='create'):
+        list=message.split(' ',2)
+        message_object.empty()
+        message_object.message_type="create"
+        message_object.client_name=user_name
+        group_names=list[2].split()
+        message_object.group_list=group_names
+    elif(initial=='join'):
+        list=message.split(' ',2)
+        message_object.empty()
+        message_object.message_type="join"
+        message_object.client_name=user_name
+        group_names=list[2].split()
+        message_object.group_list=group_names
+    elif(initial=='list'):
+        message_object.empty()
+        message_object.message_type="list"
+    elif(initial=='delete'):
+        list=message.split(' ',2)
+        message_object.empty()
+        message_object.message_type="delete"
+        message_object.client_name=user_name
+        group_names=list[2].split()
+        message_object.group_list=group_names
+    elif(initial=='send'):
+        global sending_message
+        global receiver_name
+        list=message.split(' ',2)
+        message_object.empty()
+        message_object.message_type="send"
+        message_object.client_rollnumber=list[1]
+        receiver_name=list[1]
+        sending_message=user_name+':'+list[2]
+        if list[1] in peer_info:
+            message_object.receiver_present=True
+            message_object.client_portno=peer_info[list[1]]['portno']
+            message_object.content=peer_info[list[1]]['shared_key']
+    elif(initial=='alice'):
+        list=message.split()
+        message_object.empty()
+        message_object.message_from="CLIENT"
+        message_object.message_type="KEY_EXCHANGE"
+        message_object.content=list[1].encode('utf-8')
+    elif(initial=='bob'):
+        list=message.split()
+        message_object.empty()
+        message_object.message_from="CLIENT"
+        message_object.message_type="KEY_EXCHANGE"
+        message_object.content=list[1].encode('utf-8')
+
+    return message_object
+
 
 def sender_diffie_hellman():
     global private_key
@@ -29,17 +105,13 @@ def sender_diffie_hellman():
     alice_public_key=int(pow(generator,private_key,prime_number))
     alice_public_key=str(alice_public_key)
     #send public key to bob
-    messagesent='alice '+str(portno)+' '+alice_public_key
+    messagesent='alice '+alice_public_key
     return messagesent
 
-def parse(message):
-    list=message.split()
-    return list[0]
 
 def receiver_diffie_hellman(response):
     global private_key
     global shared_key
-    list=response.split()
     #generation of private key
     private_key_initial=os.urandom(24)
     key=str(private_key_initial)+roll_no
@@ -49,12 +121,12 @@ def receiver_diffie_hellman(response):
     bob_public_key=int(pow(generator,private_key,prime_number))
     bob_public_key=str(bob_public_key)
     #generation of shared key
-    alice_public_key=int(list[2])
+    alice_public_key=int(response)
     #print(alice_public_key)
     shared_key=int(pow(alice_public_key,private_key,prime_number))
     #print('shared key:'+str(shared_key))
     #send public key to bob
-    messagesent=bob_public_key
+    messagesent='bob '+bob_public_key
     return messagesent
     
 def generate_shared_key(response):
@@ -86,21 +158,52 @@ def decrypt3des(messagesent):
 #   orginalmessage=str(orginalmessage)
 #    print(orginalmessage.rstrip())
 
+def send(portno,messagesent,flag,shared_key):
+    newsocket=socket.socket()
+    try:
+        newsocket.connect((ipaddress,portno))
+    except socket.error as e:
+        print(str(e))
+    if(flag==False):
+        sender_public_key=sender_diffie_hellman()
+        sending_object=fill_the_object(sender_public_key)
+        sending_object_bytes=pickle.dumps(sending_object)
+        newsocket.send(sending_object_bytes)
+        recevi=newsocket.recv(2048)
+        if recevi:
+            recevi_object=pickle.loads(recevi)
+            received_public_key=recevi_object.content.decode('utf-8')
+            shared_key=generate_shared_key(received_public_key)
+            peer_info[receiver_name]={'shared_key':shared_key,'portno':portno}
+    messagesent=encrypt3des(messagesent,shared_key)
+    message_object.empty()
+    message_object.message_from="CLIENT"
+    message_object.message_type="DECRYPT"
+    message_object.content=messagesent
+    newsocket.send(pickle.dumps(message_object))
+    newsocket.close()
+
 
 ipaddress='127.0.0.1'
 portno=1234
 def receivingdata(connection,port):
     while True:
-        recevied=connection.recv(2048)
-        if b'alice' in recevied:
-            response=recevied.decode('utf-8')
-            message=receiver_diffie_hellman(response)
-            #print(message)
-            connection.sendall(str.encode(message))
-        else:
-            decrypt3des(recevied)
-            break
-        if not recevied:
+        received=connection.recv(2048)
+        if received:
+            message_object=pickle.loads(received)
+            initial=message_object.message_type
+            source=message_object.message_from
+            if(initial=='KEY_EXCHANGE'):
+                received_public_key=message_object.content.decode('utf-8')
+                message=receiver_diffie_hellman(received_public_key)
+                sending_object=fill_the_object(message)
+                sending_object_bytes=pickle.dumps(sending_object)
+                connection.send(sending_object_bytes)
+            elif(initial=='DECRYPT' and source=='CLIENT'):
+                received_message=message_object.content
+                decrypt3des(received_message)
+            
+        if not received:
             break
     connection.close()
     
@@ -114,31 +217,12 @@ def clientlistenthread():
     while True:
         client, address =listeningsocket.accept()
         start_new_thread(receivingdata,(client,address[1]))
-    
-def send(received,messagesent):
-    newsocket=socket.socket()
-    list=recevied.split()
-    try:
-        newsocket.connect((ipaddress,int(list[1])))
-    except socket.error as e:
-        print(str(e))
-    message=sender_diffie_hellman()
-    #print('private key:'+message)
-    newsocket.sendall(str.encode(message))
-    recevi=newsocket.recv(2048)
-    response=recevi.decode('utf-8')
-    #print('receiver public key'+response)
-    shared_key=generate_shared_key(response)
-    #print(shared_key)
-    messagesent=encrypt3des(messagesent,shared_key)
-    #print(messagesent)
-    newsocket.sendall(messagesent)
-    newsocket.close()
-    
+
+#connection with client is starting
 start_new_thread(clientlistenthread,())
-####
-clientsocket=socket.socket()
+
 #connection with server is starting
+clientsocket=socket.socket()
 try:
     clientsocket.connect((ipaddress,portno))
 except socket.error as e:
@@ -147,32 +231,23 @@ res=clientsocket.recv(1024)
 print(res.decode('utf-8'))
 while True:
     message=input()
-    initial=parse(message)
-    print("initial : ", initial)
-    if(initial=='signup'):
-        message+=" "
-        message+=sys.argv[1]
-    elif(initial=='send'):
-        list=message.split(' ',2)
-        sendingmessage=user_name+':'+list[2]
-        message=list[0]+' '+list[1]
-
-    elif(initial=='join'):
-        message+= " "+user_name
-    elif(initial=='create'):
-        message+= " "+user_name
-    elif(initial=='delete'):
-        message+= " "+user_name
-
-    clientsocket.send(str.encode(message))
-    res=clientsocket.recv(1024)
-    recevied=res.decode('utf-8')
-    initial=parse(recevied)
-    if(initial=='portno'):
-        send(recevied,sendingmessage)
-    elif(initial=='loggedin'):
-        list=recevied.split()
-        user_name=list[1]
+    sending_object=fill_the_object(message)
+    if(sending_object.message_type=="send" and sending_object.receiver_present==True):
+        send(sending_object.client_portno,sending_message,True,sending_object.content)
     else:
-        print(recevied)
+
+        sending_bytes=pickle.dumps(sending_object)
+        clientsocket.send(sending_bytes)
+        resp=clientsocket.recv(1024)
+        if resp:
+            received_object=pickle.loads(resp)
+            initial=received_object.message_type
+            if initial=='general_response':
+                print(received_object.content.decode('utf-8'))
+            elif initial=='SOCK_RESPONSE':
+                content_received=received_object.content.decode('utf-8')
+                list=content_received.split()
+                receiver_portno=int(list[1])
+                #print(receiver_portno)
+                send(receiver_portno,sending_message,False,"")
 clientsocket.close()
