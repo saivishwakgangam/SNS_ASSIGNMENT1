@@ -12,3 +12,5 @@
 * list groups : list 
 * send message to groups: send_grp group_list message
 * send file to groups: send_grp_file group_list filename
+
+![group_messaging](https://user-images.githubusercontent.com/70585835/105977141-0854f800-60b7-11eb-9dcd-54977cbfcd18.jpg)
