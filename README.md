@@ -1,4 +1,6 @@
-# SNS_ASSIGNMENT1 GROUP 13 MEMBERS
+# SNS_ASSIGNMENT1 GROUP_13
+
+#Group Members
 
 * Bachu Vinaya Sai Revanth    2020201090
 * T Yochan Sandesh            2020202001
