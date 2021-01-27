@@ -1,4 +1,10 @@
-# SNS_ASSIGNMENT1
+# SNS_ASSIGNMENT1 GROUP 13 MEMBERS
+
+* Bachu Vinaya Sai Revanth    2020201090
+* T Yochan Sandesh            2020202001
+* Sai Vishwak Gangnam         2020202006
+* Ch N V B Dattatreya         2020201011
+
 
 * To run client : python client.py PORT RollNumber
 
