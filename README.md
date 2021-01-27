@@ -7,10 +7,8 @@
 * Sai Vishwak Gangnam         2020202006
 * Ch N V B Dattatreya         2020201011
 
-
+# WORKING MODEL
 * To run client : python client.py PORT RollNumber
-
-* present : Working model
 * signup : signup username password
 * signin : signin username password
 * message peer : send username_of_receiver message
@@ -21,4 +19,5 @@
 * send message to groups: send_grp group_list message
 * send file to groups: send_grp_file group_list filename
 
+# GROUP MESSAGING MODEL
 ![group_messaging](https://user-images.githubusercontent.com/70585835/105977141-0854f800-60b7-11eb-9dcd-54977cbfcd18.jpg)
